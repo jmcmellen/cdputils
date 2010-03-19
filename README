@@ -1,0 +1,111 @@
+===============================================================
+License (see the MIT License)
+
+Copyright (c) 2009 John McMellen
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+==============================================================
+
+In other words, use at your own risk. Additionally, this software
+is not approved or endorsed by PRSS in any way. Any use of the
+term "ContentDepot (TM)" is purely for informational purposes. No
+guarantees of suitability or compatibility with the ContentDepot
+platform are expressed or implied. Users of the software are
+encouraged to do extensive testing before using in a production
+environment, if ever.
+
+HOW TO USE:
+==========================================================
+
+NOTE: Usage examples are listed below this section.
+
+The script cdpwavefile.py provides an implementation of RIFF WAVE
+chunks, including the CartChunk and EBU BWF chunks needed to tag
+wave files with metadata used in broadcast systems. The script can
+be included in your own project to provide an interface to create
+or modify these types of files in any operations necessary. The
+library code contains routines to decode and encode the binary
+headers so that you can inspect or create files to your liking.
+
+There are two utilities included in this distribution: Readcondep.py
+and Makecondep.py. The purpose of Readcondep is to analyze and print
+out information contained in the wave file headers, consisting of 
+RIFF chunks cart, bext, mext, fmt, and fact. Additionally, the 
+utility can extract the MP2 audio to another file for further
+analysis by MPEG-enabled programs. You can also extract the data 
+in the CART chunk TagText field to a text file. This field may
+contain XML data that can be useful. The contents of the CartChunk
+can also be saved as an XML file and then later restored along
+with the audio to create an almost identical copy of the original,
+though allowing the processing of the audio itself.
+
+The purpose of Makecondep is to wrap an MP2 or uncompressed PCM
+WAVE audio file with RIFF chunks and a Wave header similar to what 
+is used by many distribution systems. The goal of this utility is 
+to follow specifications of the ContentDepot(TM) system. You can
+set various CartChunk fields from the command line as well as 
+import a text file into the TagText field. You can set all the 
+CartChunk fields by importing a specially designed XML file. The 
+format of this file can be derived from the output of a previous
+run of the Readcondep utility.
+
+Detailed usage information can be found by running the utilities
+on the command line using the help (-h) option.
+
+These utilities were written in Python 2.6 and can be compiled into
+executables using Py2Exe. Please consult the websites for these
+projects for information about other dependencies that may need
+to be installed in order to run the utilities on your computer.
+
+USAGE EXAMPLES
+=============================================================
+
+Display the values of the CartChunk in a file:
+readcondep.py AllThi21_001_SGMT01.wav
+
+Display the values in all chunks in the file:
+readcondep.py AllThi21_001_SGMT01.wav -a
+
+Extract information from the file so you can reassemble it later:
+readcondep.py AllThi21_001_SGMT01.wav --save-cart=cart.xml 
+              --tagtext-out=tagtext.xml --extract-mp2=audio.mp2
+
+Set the title and end date on an existing CartChunk file:
+makecondep.py AllThi21_001_SGMT01.wav -t "The Title" 
+              --enddate=2010/03/01
+
+Set the cutid of an existing CartChunk file:
+makecondep.py AllThi21_001_SGMT01.wav -c 12345
+
+Create a CartChunk file from an MP2 file and cart and tagtext files:
+makecondep.py audio.mp2 AllThi21_001_SGMT01-modified.wav
+              --restore-cart=cart.xml --tagtext-in=tagtext.xml
+
+Create a CartChunk file from an MP2 file and cart and tagtext files,
+   overriding the cutid saved in the cart.xml file:
+makecondep.py audio.mp2 AllThi21_001_SGMT01-modified.wav -c 12345
+              --restore-cart=cart.xml --tagtext-in=tagtext.xml
+
+Create a CartChunk file from an uncompressed WAVE file and cart
+   and tagtext files:
+makecondep.py processedaudio.wav AllThi21_001_SGMT01-modified.wav
+              --restore-cart=cart.xml --tagtext-in=tagtext.xml
