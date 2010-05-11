@@ -42,7 +42,7 @@ from cdpwavefile import *
 from optparse import OptionParser
 import sys
 
-program_version = "1.3"
+program_version = "1.4"
 
 parser = OptionParser(usage="usage: %prog [options] PCM/MP2inputfile wrappedoutputfile")
 parser.add_option("-v", "--ver", dest="show_version",
@@ -64,6 +64,10 @@ parser.add_option("--enddate", dest="enddate",
 	help="set CartChunk EndDate to YYYY/MM/DD")
 parser.add_option("--endtime", dest="endtime",
 	help="set CartChunk EndTime to 24 hour HH:MM:SS")
+parser.add_option("--category", dest="category",
+	help="set CartChunk Category to CATEGORY")
+parser.add_option("--classification", dest="classification",
+	help="set CartChunk Classification to CLASSIFICATION")
 parser.add_option("--appid", dest="appid", default="PythonUtil",
 	help="set CartChunk AppID to APPID, default value is PythonUtil")
 parser.add_option("--appver", dest="appver", default=program_version,
