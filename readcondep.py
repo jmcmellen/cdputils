@@ -40,7 +40,7 @@ from cdpwavefile import *
 from optparse import OptionParser
 import sys
 
-program_version = "1.3"
+program_version = "1.4"
 
 chunklist = ("cart", "bext", "mext", "fact", "fmt")
 parser = OptionParser(usage="usage: %prog [options] wavefile")
@@ -75,19 +75,25 @@ def main():
     MyCDPFile = CDPFile()
     try:
 	foundchunks = MyCDPFile.ReadWaveFile(args[0])
+	foundchunks.remove('data')
 	if options.show_all_chunks:
 	    for chunkname in foundchunks:
-		setattr(options, "show" + chunkname, True)
+		if hasattr(options, "show" + chunkname):
+		    setattr(options, "show" + chunkname, True)
+		else:
+		    print "Unknown chunk '{0}' found, skipping".format(
+			    chunkname)
 	for chunkname in chunklist:
 	    if ( getattr(options, "show" + chunkname) and 
 	           (chunkname not in foundchunks) ):
 		print "Chunk ID '{0}' not found".format(chunkname)
 		picked_at_least_one_option = True
 	for chunkname in foundchunks:
-	    if getattr(options, "show" + chunkname):
-		print "--Contents of {0} chunk--".format(chunkname)
-		print str(getattr(MyCDPFile, chunkname))
-		picked_at_least_one_option = True
+	    if hasattr(options, "show" + chunkname):
+		if getattr(options, "show" + chunkname):
+		    print "--Contents of {0} chunk--".format(chunkname)
+		    print str(getattr(MyCDPFile, chunkname))
+		    picked_at_least_one_option = True
 	if options.tagtextoutfile is not None:
 	    with open(options.tagtextoutfile, 'w') as f:
 		print "Saving TagText to {0}".format(

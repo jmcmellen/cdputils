@@ -33,7 +33,7 @@ from xml.dom.minidom import parse, parseString, getDOMImplementation
 import re
 import os.path
 
-cdpwavefile_core_version = 1.5
+cdpwavefile_core_version = 1.6
 
 class InvalidMPEGDataError(Exception):
     """A custom exception to indicate any problems decoding MPEG data fields in the header or possibly conflicting settings"""
@@ -563,6 +563,31 @@ class CDPFile:
 		self.audiosrcfilename = wavefilename
 	return foundchunklist
     
+    def MakeChunkDictionary(self, binDataBlock):
+	ChunkDict = dict()
+	ptr = 12
+	#Skip the first 12 bytes
+	chunktype = ""
+	while ptr < len(binDataBlock):
+	    data = binDataBlock[ptr:(ptr+8)]
+	    ptr += 8
+	    chunktype, chunksize = unpack("<4sL", data)
+	    if chunktype == "data":
+		ChunkDict[chunktype] = (ptr, chunksize)
+	    else:
+		ChunkDict[chunktype.rstrip()] = binDataBlock[ptr:(ptr+chunksize)]
+	    ptr += chunksize
+
+	for t, v in ChunkDict.iteritems():
+	    if hasattr(self, t):
+		getattr(self, t).DecodeBinString(
+			v, len(v))
+	    elif t == "data":
+		self.audiopointer = v[0]
+		self.datasize = v[1]
+
+	return ChunkDict.keys()
+
     def SearchWaveDataBlob(self, binDataBlock):
 	foundchunklist = []
 	ptr = 0
@@ -575,15 +600,19 @@ class CDPFile:
 	    ptr +=8
 	    chunktype, chunksize = unpack("<4sL", data)
 	    #print chunktype, chunksize
+	    foundchunklist.append(chunktype.rstrip())
 	    if hasattr(self, chunktype.rstrip()):
-	        foundchunklist.append(chunktype.rstrip())
 		data = binDataBlock[ptr:(ptr+chunksize)]
 		ptr += chunksize
 	        getattr(self, chunktype.rstrip()).DecodeBinString(data,
 			    chunksize)
-	    if chunktype == "data":
+	    elif chunktype == "data":
+		#print "Found data chunk"
 	        self.audiopointer = ptr
 	        self.datasize = chunksize
+	    else:
+		ptr += chunksize
+		#print "Skipping unknown chunk"
 
 	return foundchunklist
 
@@ -591,7 +620,8 @@ class CDPFile:
 	#Open wave file
 	with open( wavefilename, 'rb') as f:
 	    data = f.read(8192)
-	foundchunklist = self.SearchWaveDataBlob( data )
+	#foundchunklist = self.SearchWaveDataBlob( data )
+	foundchunklist = self.MakeChunkDictionary(data)
 	if self.fmt.compressioncode == 80:
 	    self.audiosrcfilename = wavefilename
 	else:
@@ -607,6 +637,7 @@ class CDPFile:
 	for chunkname in chunklist:
 	    chunkstring = getattr(self, str(chunkname).strip(" ")).EncodeBinString()
 	    HeaderString = HeaderString + chunkname + pack("L", len(chunkstring)) + chunkstring
+	HeaderString = HeaderString + chunkname + pack("L", len(chunkstring)) + chunkstring
 	HeaderString = HeaderString + "data" + pack("L", self.datasize)
 
 	HeaderString = "RIFF" + pack("L", len(HeaderString) + self.datasize + 4) \
