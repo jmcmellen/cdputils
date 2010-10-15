@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 #===============================================================
 #  makecondep.py - A utility to wrap an MP2 audio file with
 #  RIFF WAVE chunks using CartChunk and BWF chunks, generating
@@ -35,8 +35,6 @@
 #OTHER DEALINGS IN THE SOFTWARE.
 #
 #=================================================================
-
-#PYTHON 2.6 REQUIRED
 
 from cdpwavefile import *
 from optparse import OptionParser

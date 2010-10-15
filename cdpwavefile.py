@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 #===============================================================
 #License (see the MIT License)
@@ -28,18 +28,15 @@
 #
 #=================================================================
 
-#PYTHON 2.6 REQUIRED
-
 from struct import *
 from xml.dom.minidom import parse, parseString, getDOMImplementation
 import re
 import os.path
 
-cdpwavefile_core_version = 1.4
+cdpwavefile_core_version = 1.5
 
 class InvalidMPEGDataError(Exception):
-    """A custom exception to indicate any problems decoding MPEG data fields
-in the header or possibly conflicting settings"""
+    """A custom exception to indicate any problems decoding MPEG data fields in the header or possibly conflicting settings"""
     def __init__(self, value):
 	self.value = value
     def __str__(self):
@@ -48,7 +45,8 @@ in the header or possibly conflicting settings"""
 class CartChunk:
     """A Class representing the fields in a CartChunk chunk"""
     formatstring = "<4s64s64s64s64s64s64s64s10s8s10s8s64s64s64sL64s276s1024s{0}s"
-
+    #formatstring = "<4s64s64s64s64s64s64s64s10s8s10s8s64s64s64sH340s716s{0}s"
+    #formatstring = "<4s64s64s64s64s64s64s64s10s8s10s8s64s64s64sH32s1024s{0}s"
     def __init__(self):
 	self.xmlfields = ["version", "title", "artist", "cutnum", "clientid", 
 	    "category", "classification", "outcue", "startdate", "starttime",
@@ -291,7 +289,7 @@ Coding History: {10!r}
 		setattr(self, objfield, str(value).strip("\x00"))
 	    except Exception as inst:
 		raise inst
-	
+
     def EncodeBinString(self):
 	cdglength = len(self.codinghistory + "\x00\x00")
 	if (cdglength % 2) == 1:
@@ -313,12 +311,21 @@ class MextChunk:
 	self.reserved = "\x00\x00\x00\x00"
 
     def __str__(self):
-	soundinfoval, = unpack(">H", self.soundinfo)
-	return """SoundInfo value: {0:#016b}
-Frame Size: {1}
-Ancillary Data Length: {2}
-Ancillary Data Definition: {3}
-""".format(soundinfoval, self.framesize, self.ancildataln, self.ancildatadef)
+	soundinfoval, = unpack("<H", self.soundinfo)
+	soundinfo = "{0:#016b}".format(soundinfoval)
+	soundinfolist = []
+	soundinfoflags = ["","","","","","","","","","","", "", \
+		"FLAG_FREE_FORMAT_USED", "FLAG_VARIABLE_PADDING", \
+		"FLAG_NO_PADDING", "FLAG_HOMOGENOUS_SOUND"]
+	for x in range(15, 11, -1):
+	    if int(soundinfo[x]) == 1:
+		soundinfolist.append(soundinfoflags[x])
+	return """SoundInfo value: {0} {1}
+Frame Size: {2}
+Ancillary Data Length: {3}
+Ancillary Data Definition: {4}
+""".format(soundinfo, soundinfolist, self.framesize, self.ancildataln,
+	   self.ancildatadef)
 
     def GetMpegParam(self, mpeginfo):
 	self.framesize = mpeginfo.framesize
@@ -370,17 +377,26 @@ class FmtChunk:
 	self.ptshigh = 0
 
     def __str__(self):
+	mpegflagsdef = ["","","","","","","","","","", "", \
+		"ACM_MPEG_ID_MPEG1", "ACM_MPEG_PROTECTIONBIT", \
+		"ACM_MPEG_ORIGINALHOME", "ACM_MPEG_COPYRIGHT", \
+		"ACM_MPEG_PRIVATEBIT"]
+	mpegflagslist = []
+	mpegflags = "{0:#016b}".format(self.headflags)
+	for x in range(15, 10, -1):
+	    if int(mpegflags[x]) == 1:
+		mpegflagslist.append(mpegflagsdef[x])
 	subchunkstring = """MPEG Layer: {0}
 MPEG Bitrate: {1}
 MPEG Mode: {2}
 MPEG Mode extension: {3}
 MPEG emphasis: {4}
-MPEG Flags: {5:#016b}
-MPEG PTS Low: {6}
-MPEG PTS High: {7}
+MPEG Header Flags: {5} {6}
+MPEG PTS Low: {7}
+MPEG PTS High: {8}
 """.format( self.headlayer, self.headbitrate, self.headmode,
-	    self.headmodeext, self.heademphasis, self.headflags, 
-	    self.ptslow, self.ptshigh )
+	    self.headmodeext, self.heademphasis, mpegflags, 
+	    mpegflagslist, self.ptslow, self.ptshigh )
 
 	fmtchunkstring = """Compression Code: {0}
 Number of Channels: {1}
@@ -523,7 +539,7 @@ class CDPFile:
 		    m.write(audio)
 		    audio = f.read(self.fmt.blockalign)
 		    
-    def ReadWaveFile(self, wavefilename):
+    def __ReadWaveFile_old(self, wavefilename):
 	foundchunklist = []
 	with open(wavefilename, 'rb') as f:
 	    data = f.read(12)
@@ -546,8 +562,47 @@ class CDPFile:
 	    else:
 		self.audiosrcfilename = wavefilename
 	return foundchunklist
+    
+    def SearchWaveDataBlob(self, binDataBlock):
+	foundchunklist = []
+	ptr = 0
+	data = binDataBlock[ptr:(ptr+12)]
+	ptr += 12
+	riff, riffsize, wave = unpack("<4sL4s", data)
+	chunktype = ""
+	while chunktype != "data" and ptr < len(binDataBlock):
+	    data = binDataBlock[ptr:(ptr+8)]
+	    ptr +=8
+	    chunktype, chunksize = unpack("<4sL", data)
+	    #print chunktype, chunksize
+	    if hasattr(self, chunktype.rstrip()):
+	        foundchunklist.append(chunktype.rstrip())
+		data = binDataBlock[ptr:(ptr+chunksize)]
+		ptr += chunksize
+	        getattr(self, chunktype.rstrip()).DecodeBinString(data,
+			    chunksize)
+	    if chunktype == "data":
+	        self.audiopointer = ptr
+	        self.datasize = chunksize
+
+	return foundchunklist
+
+    def ReadWaveFile(self, wavefilename):
+	#Open wave file
+	with open( wavefilename, 'rb') as f:
+	    data = f.read(8192)
+	foundchunklist = self.SearchWaveDataBlob( data )
+	if self.fmt.compressioncode == 80:
+	    self.audiosrcfilename = wavefilename
+	else:
+	    self.audiosrcfilename = wavefilename
+
+	return foundchunklist
 
     def WriteWaveFileHelper(self, wavefilename, chunklist, inputfile):
+        #ChunkList = (self.fmt, self.fact, self.mext, self.bext, self.cart)
+	#Chunks = [chunk.EncodeBinString() for chunk in ChunkList]
+	#ChunkStuff = zip(["fmt ", "fact", "mext", "bext", "cart"], Chunks)
 	HeaderString = ""
 	for chunkname in chunklist:
 	    chunkstring = getattr(self, str(chunkname).strip(" ")).EncodeBinString()
@@ -590,9 +645,49 @@ def GetMPEGHeaderFromFile(filename):
 def RunTests():
     pass
 
-if __name__ == "__main__":
-    RunTests()
+def CondepTests():
+    MyConDepThing = CDPFile()
+    MyConDepThing.cart.title = "Another Condep file"
+    MyConDepThing.cart.artist = "John McMellen"
+    MyConDepThing.cart.cutnum = "12345"
+    MyConDepThing.cart.title = "AllThi21 090223 SGMT 01 A Billboard All Things Considered Everg"
+    MyConDepThing.cart.artist = ""
+    MyConDepThing.cart.cutnum = "74040"
+    MyConDepThing.cart.outcue = '"...first the news.'
+    MyConDepThing.cart.startdate = "2009/02/23"
+    MyConDepThing.cart.starttime = "01:00:00"
+    MyConDepThing.cart.enddate = "2010/02/19"
+    MyConDepThing.cart.endtime = "23:59:00"
 
+    #MyConDepThing.WriteCompressedWaveFile("thing.wav")
+
+    MyConDepThing.ImportMpegFile("CarTalk__170_SGMT01.mp2")
+    MyConDepThing.WriteCompressedWaveFile("atestfile.wav")
+    MyConDepThing.ReadWaveFile("atestfile.wav")
+    MyConDepThing.ExportMpegFile("atestfile.mp2")
+    MyConDepThing.ReadWaveFile("258SiobhanMichaelSeg1.wav")
+    MyConDepThing.ExportMpegFile("Michael.mp2")
+    print MyConDepThing.cart.ExportXMLValues()
+    MyConDepThing.cart.ImportXMLValues("<?xml version='1.0' ?><cart>" \
+	    "<version>0101</version><title>XML Title</title>" \
+	    "<artist>John XML</artist><cutnum>00001</cutnum><clientid></clientid>" \
+	    "<category></category><classification></classification><outcue></outcue>" \
+	    "<startdate>2000/07/07</startdate><starttime>01:23:45</starttime>" \
+	    "<enddate>2020/09/09</enddate><endtime>22:01:32</endtime>" \
+	    "<appid>PythonUtil2</appid><appver>3.0</appver><userdef></userdef>" \
+	    "<zerodbref>0</zerodbref><posttimers>{1}</posttimers><url></url>" \
+	    "<tagtext>{0}</tagtext></cart>".format('<program-associated-data><property name="OwnerIdentifier" value="ContentDepot"/><property name="Identifier" value="001"/><property name="Title" value="Talk about ContentDepot"/><property name="Artist" value="PRSS"/><property name="Album" value="ContentDepot Test Program"/><property name="Genre" value="101"/><property name="CommentTitle" value="This is a comment"/><property name="Comment" value="These are test and placeholder fields for ContentDepot PAD support in files. They are currently generated from static fields in the ContentDepot Portal database. Send email to prssplanning@npr.org if you have questions."/></program-associated-data>', '<timer type="MRK ">112000</timer><timer type="SEC1">152533</timer><timer type="">4294967295</timer><timer type="">4294967295</timer><timer type="">4294967295</timer><timer type="">4294967295</timer><timer type="">4294967295</timer><timer type="EOD ">201024</timer>'))
+    print MyConDepThing.cart
+    CCfile = CDPFile()
+    CCfile.ReadWaveFile("CC_0101.wav")
+    print CCfile
+    print CCfile.cart.ExportXMLValues()
+    CCfile.WritePCMWaveFile("CC_0101_john.wav")
+
+if __name__ == "__main__":
+    #RunTests()
+    #MakeAHeader()
+    CondepTests()
 
 
 
