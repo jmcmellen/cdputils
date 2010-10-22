@@ -19,9 +19,9 @@ transfer_times = []
 CdpFile = cdpwavefile.CDPFile()
 
 for file in os.listdir(srcFolder):
-    RXfiles.append([file, os.path.getsize(srcFolder + file)])
+    RXfiles.append([file, os.path.getsize(srcFolder + file), tuple(os.stat(srcFolder + file))[7:9]])
 RXfiles = sorted(RXfiles, key=itemgetter(1), reverse=False)
-print RXfiles
+#print RXfiles
 
 #Set up logging
 my_logger = logging.getLogger('MyLogger')
@@ -35,12 +35,12 @@ my_logger.addHandler(handler)
 my_logger.info('Starting script')
 #print RXfiles
 
-for file in RXfiles:
+for name, size, times in RXfiles:
     data = '0'
-    x = open(srcFolder + file[0], 'rb', 8192)
-    my_logger.debug('Opening source file ' + srcFolder + file[0])
-    y = open(destFolder + file[0] + ".part", 'wb')
-    my_logger.debug('Opening dest file ' + destFolder + file[0])
+    x = open(srcFolder + name, 'rb', 8192)
+    my_logger.debug('Opening source file ' + srcFolder + name)
+    y = open(destFolder + name + ".part", 'wb')
+    my_logger.debug('Opening dest file ' + destFolder + name)
     start_time = time.clock()
     data = x.read(524288)
     CdpFile.SearchWaveDataBlob(data)
@@ -54,13 +54,15 @@ for file in RXfiles:
 	data = x.read(524288)
     x.close()
     y.close()
-    my_logger.debug('Done copying ' + destFolder + file[0])
-    if os.path.isfile(destFolder + file[0]):
-	my_logger.warn("Overwriting file " + destFolder + file[0])
-	os.remove(destFolder + file[0])
-    os.rename(destFolder + file[0] + ".part",
-	      destFolder + file[0] )
-    #os.unlink(srcFolder + file[0])
+    my_logger.debug('Done copying ' + destFolder + name)
+    if os.path.isfile(destFolder + name):
+	my_logger.warn("Overwriting file " + destFolder + name)
+	os.remove(destFolder + name)
+    os.rename(destFolder + name + ".part",
+	      destFolder + name )
+    #print times
+    os.utime(destFolder + name, times)
+    os.unlink(srcFolder + name)
 
 #print transfer_times
 avg_transfer_rate = 0
