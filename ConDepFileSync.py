@@ -9,9 +9,8 @@ import logging.handlers
 import time
 
 #Build a list of filenames in the receiver
-#RXfiles = os.listdir(r"\\cdfile1\xdcache\CDCutId")
-srcFolder = "\\ConDep\\cdfile1\\xdcache\\CDCutId\\"
-destFolder = "\\ConDep\\aserv3\\CDautoload\\"
+srcFolder = "\\\\cdproaudio2\\xdcache\\CDCutId\\"
+destFolder = "\\CDautoload\\"
 logFileName = "synclog.txt"
 
 RXfiles = [] #os.listdir(srcFolder)
@@ -45,6 +44,7 @@ for name, size, times in RXfiles:
     data = x.read(524288)
     CdpFile.SearchWaveDataBlob(data)
     my_logger.info(CdpFile.cart)
+    my_logger.info(CdpFile.fact)
     while data != '':
 	y.write(data)
 	#time.sleep(0.1)
@@ -60,18 +60,18 @@ for name, size, times in RXfiles:
 	os.remove(destFolder + name)
     os.rename(destFolder + name + ".part",
 	      destFolder + name )
-    #print times
     os.utime(destFolder + name, times)
     os.unlink(srcFolder + name)
+    my_logger.info('Copied {0:1.1f} KB file'.format(os.stat(
+                      destFolder + name).st_size / 1024))
 
 #print transfer_times
 avg_transfer_rate = 0
-for transfer_time, num_bytes in transfer_times:
-    avg_transfer_rate = (avg_transfer_rate + (num_bytes / transfer_time) ) / 2
+for datapoints in transfer_times:
+    avg_transfer_rate = (avg_transfer_rate + (datapoints[1] / datapoints[0]) ) / 2
 
 #print avg_transfer_rate / 1024
 if len( transfer_times ) > 0:
-    my_logger.info('Avg transfer rate: {0:1.3f} KB/s'.format(avg_transfer_rate / 1024 ))
+    my_logger.info('Avg transfer rate: {0:1.3f} KB/s'.format(avg_transfer_rate / 1024))
 
 my_logger.info('End of script')
-
